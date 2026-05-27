@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>My Favorite ♡</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400&family=Special+Elite&family=Sacramento&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            overflow: hidden; 
+            /* 💡 更換為極細、具現代清新的中文字體排版 */
+            font-family: "PingFang TC", "Lantinghei TC", "Microsoft JhengHei Light", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            font-weight: 200; /* 極細字重 */
+            background: radial-gradient(circle at center, #ffffff 0%, #fcfcfc 100%);
+            color: #333333;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 密碼鎖畫面 */
+        #password-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #ffffff;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+        }
+
+        .login-box {
+            text-align: center;
+            width: 80%;
+            max-width: 300px;
+            transition: opacity 0.3s ease;
+        }
+
+        /* 🔓 解鎖動畫樣式 */
+        #unlock-icon {
+            font-size: 70px;
+            position: absolute;
+            display: none;
+            opacity: 0;
+            transform: scale(0.2);
+            transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-shadow: 0 8px 15px rgba(0,0,0,0.05);
+        }
+
+        #unlock-icon.show {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .lock-title {
+            font-family: 'Special Elite', cursive;
+            font-size: 18px;
+            letter-spacing: 3px;
+            margin-bottom: 25px;
+            color: #444;
+        }
+
+        #password-input {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-bottom: 1px solid #ddd;
+            text-align: center;
+            font-size: 20px;
+            letter-spacing: 8px;
+            margin-bottom: 30px;
+            outline: none;
+            background: transparent;
+            color: #333;
+            font-weight: 200;
+        }
+
+        .login-box button {
+            background: none;
+            border: 1px solid #ddd;
+            padding: 8px 25px;
+            font-size: 12px;
+            letter-spacing: 2px;
+            cursor: pointer;
+            font-family: 'Special Elite', cursive;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+        
+        .login-box button:active {
+            background-color: #f9f9f9;
+            border-color: #bbb;
+        }
+
+        /* 💡 縮小、變細、拉開字距的錯誤提示 */
+        #error-message {
+            color: #d9534f;
+            font-size: 12px;
+            font-weight: 300;
+            letter-spacing: 1.5px;
+            margin-top: 20px;
+            height: 18px;
+            line-height: 1.5;
+        }
+
+        /* 滿版滑動翻頁容器 */
+        .scroll-container {
+            width: 100%;
+            height: 100vh;
+            overflow-y: scroll;
+            scroll-snap-type: y mandatory;
+            scroll-behavior: smooth;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .page {
+            width: 100%;
+            height: 100vh;
+            scroll-snap-align: start;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* 滾動提示 */
+        .scroll-hint {
+            position: absolute;
+            bottom: 35px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            pointer-events: none;
+        }
+
+        .hint-dot {
+            width: 3px;
+            height: 3px;
+            background: #ccc;
+            border-radius: 50%;
+            margin-bottom: 6px;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        .favorite-text {
+            font-family: 'Sacramento', cursive;
+            font-size: clamp(38px, 10vw, 68px);
+            color: #111111;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .heart-icon {
+            color: #ffcdd2; 
+            font-size: 0.85em;
+            display: inline-block;
+            transform: translateY(3px);
+        }
+
+        /* 第一頁：三張拍立得樣式 */
+        .polaroid-deck {
+            display: flex;
+            gap: 16px;
+            width: 100%;
+            max-width: 460px;
+            justify-content: center;
+            align-items: center;
+            margin-top: -40px; 
+            margin-bottom: 40px; 
+            z-index: 2;
+        }
+
+        .polaroid {
+            background: #ffffff;
+            padding: 8px 8px 25px 8px;
+            width: 31%;
+            aspect-ratio: 3 / 4;
+            /* 💡 真實雙層纖細陰影 */
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08), 0 3px 10px rgba(0,0,0,0.04);
+            border: 1px solid #f5f5f5;
+            transform: rotate(var(--rot));
+            transition: transform 0.1s ease, box-shadow 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .polaroid img {
+            width: 100%;
+            height: 82%;
+            object-fit: cover;
+            background-color: #fafafa;
+        }
+
+        .vibrate-anim {
+            animation: shake 0.3s linear;
+        }
+
+        @keyframes shake {
+            0% { transform: rotate(var(--rot)) translate(0, 0); }
+            20% { transform: rotate(calc(var(--rot) + 2deg)) translate(-1px, 1px); }
+            40% { transform: rotate(calc(var(--rot) - 2deg)) translate(1px, -1px); }
+            60% { transform: rotate(calc(var(--rot) + 1deg)) translate(0px, -1px); }
+            80% { transform: rotate(calc(var(--rot) - 1deg)) translate(1px, 0px); }
+            100% { transform: rotate(var(--rot)) translate(0, 0); }
+        }
+
+        /* 💡 縮小、變細、拉大字距的拍立得文字 */
+        .dropped-caption {
+            font-size: 15px;
+            font-weight: 300;
+            color: #555;
+            letter-spacing: 3px;
+            min-height: 40px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: all 0.5s ease-out;
+            width: 100%;
+            max-width: 320px;
+            z-index: 1;
+        }
+
+        .dropped-caption.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 💡 第二頁：悄悄話改成日系精緻細字體 */
+        .letter-content {
+            font-size: clamp(14px, 4vw, 16px);
+            font-weight: 300;
+            line-height: 2.2;
+            max-width: 290px;
+            text-align: center;
+            color: #444444;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 1s ease;
+            letter-spacing: 2.5px;
+        }
+
+        .active-page .letter-content {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* 第三頁：刮刮樂 */
+        .scratch-widget {
+            position: relative;
+            width: 260px;
+            height: 350px;
+            background: #ffffff;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            border: 1px solid #eee;
+            padding: 8px;
+        }
+
+        .scratch-underlayer {
+            width: 100%;
+            height: 100%;
+            background-color: #fafafa;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .scratch-underlayer img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .scratch-canvas {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            width: calc(100% - 16px);
+            height: calc(100% - 16px);
+            cursor: pointer;
+            z-index: 10;
+            touch-action: none;
+        }
+
+        /* 第四頁：愛心雨中心文字 */
+        .rain-center-title {
+            font-size: 11px;
+            font-weight: 300;
+            letter-spacing: 3px;
+            color: #aaa;
+            z-index: 2;
+            text-align: center;
+            pointer-events: none;
+            position: absolute;
+            top: 15%;
+            line-height: 2;
+        }
+
+        #heart-rain-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 5;
+        }
+
+        /* 💡 第五頁：結尾句也換成纖細優雅的小字 */
+        .final-words {
+            font-size: clamp(16px, 4.5vw, 19px);
+            font-weight: 300;
+            color: #222;
+            text-align: center;
+            opacity: 0;
+            letter-spacing: 4px;
+            transform: scale(0.98);
+            transition: all 1.2s cubic-bezier(0.1, 0.8, 0.2, 1);
+            max-width: 280px;
+        }
+
+        .active-page .final-words {
+            opacity: 1;
+            transform: scale(1);
+        }
+    </style>
+</head>
+<body>
+
+    <audio id="bg-music" loop>
+        <source src="https://cdn.pixabay.com/download/audio/2022/01/18/audio_d0a13f69d2.mp3" type="audio/mpeg">
+    </audio>
+
+    <audio id="unlock-sound">
+        <source src="https://assets.mixkit.co/active_storage/sfx/2870/2870-preview.mp3" type="audio/mpeg">
+    </audio>
+
+    <div id="password-overlay">
+        <div class="login-box" id="login-box">
+            <h2 class="lock-title">I HAVE A SECRET…</h2>
+            <input type="password" id="password-input" placeholder="••••" maxlength="4" inputmode="numeric">
+            <button onclick="checkPassword()">UNLOCK</button>
+            <p id="error-message"></p>
+        </div>
+        <div id="unlock-icon">🔓</div>
+    </div>
+
+    <div class="scroll-container" id="main-scroller">
+        
+        <section class="page">
+            <div class="favorite-text">
+                My favorite <span class="heart-icon">♡</span>
+            </div>
+            <div class="scroll-hint"><div class="hint-dot"></div></div>
+        </section>
+
+        <section class="page" id="page-polaroid">
+            <div class="polaroid-deck">
+                <div class="polaroid" style="--rot: -5deg;" onclick="triggerPolaroid(this, '你是我的唯一🧸')">
+                    <img src="https://i.postimg.cc/52QL1wzn/IMG-3898.jpgauto=format&fit=crop&w=400&q=80" alt="pic1">
+                </div>
+                <div class="polaroid" style="--rot: 2deg;" onclick="triggerPolaroid(this, '每天都非常愛你♡')">
+                    <img src="https://i.postimg.cc/mDBHQJ5w/IMG-3899.jpgauto=format&fit=crop&w=400&q=80" alt="pic2">
+                </div>
+                <div class="polaroid" style="--rot: -3deg;" onclick="triggerPolaroid(this, '想永遠跟你在一起🩷')">
+                    <img src="https://i.postimg.cc/qv2qjQyp/IMG-2368.jpgauto=format&fit=crop&w=400&q=80" alt="pic3">
+                </div>
+            </div>
+            <div class="dropped-caption" id="polaroid-text">點點看照片...</div>
+            <div class="scroll-hint"><div class="hint-dot"></div></div>
+        </section>
+
+        <section class="page" id="page-letter">
+            <div class="letter-content">
+                寶貝，接下來的路一定很辛苦，但我會陪著你！你不要害怕不要擔心，我一直都在。從遇見你的那一刻我就知道，你一定是世界上最好的男孩。我愛你。非常非常愛你，永遠的愛你。我愛你宋皓宇💋
+            </div>
+            <div class="scroll-hint"><div class="hint-dot"></div></div>
+        </section>
+
+        <section class="page" id="page-scratch">
+            <div style="font-size:11px; color:#bbb; margin-bottom:18px; letter-spacing:2px; font-family:'Special Elite',cursive;">SCRATCH HERE</div>
+            <div class="scratch-widget">
+                <div class="scratch-underlayer">
+                    <img src="https://i.postimg.cc/vTLM52Ch/IMG-3903.jpgauto=format&fit=crop&w=600&q=80" alt="Secret Photo">
+                </div>
+                <canvas class="scratch-canvas" id="scratchCanvas"></canvas>
+            </div>
+            <div class="scroll-hint"><div class="hint-dot"></div></div>
+        </section>
+
+        <section class="page" id="page-rain">
+            <div class="rain-center-title">* LOVE RAIN *<br>點點手機看愛心打架</div>
+            <canvas id="heart-rain-canvas"></canvas>
+            <div class="scroll-hint"><div class="hint-dot"></div></div>
+        </section>
+
+        <section class="page" id="page-final">
+            <div class="final-words">
+                未來也要多多指教 ♡
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        // 🔐 1. 密碼驗證模組
+        function checkPassword() {
+            const input = document.getElementById('password-input').value;
+            const overlay = document.getElementById('password-overlay');
+            const error = document.getElementById('error-message');
+            const bgm = document.getElementById('bg-music');
+            const unlockSound = document.getElementById('unlock-sound');
+            
+            const correctPassword = '1029'; 
+
+            if (input === correctPassword) {
+                unlockSound.play().catch(() => {});
+                document.getElementById('login-box').style.opacity = '0';
+                
+                setTimeout(() => {
+                    document.getElementById('login-box').style.display = 'none';
+                    const unlockIcon = document.getElementById('unlock-icon');
+                    unlockIcon.style.display = 'block';
+                    
+                    setTimeout(() => { unlockIcon.classList.add('show'); }, 50);
+                    
+                    setTimeout(() => {
+                        bgm.volume = 0.5;
+                        bgm.play().catch(() => { console.log("BGM play blocked"); });
+                        overlay.style.opacity = '0';
+                        setTimeout(() => {
+                            overlay.style.display = 'none';
+                            initScratchCard();
+                        }, 800);
+                    }, 1500);
+                }, 300);
+            } else {
+                error.innerText = '你完蛋了 (我們的紀念日) 💗';
+                document.getElementById('password-input').value = '';
+            }
+        }
+        
+        document.getElementById('password-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') checkPassword();
+        });
+
+        // ⚡ 2. 滾動頁面狀態監聽
+        const scroller = document.getElementById('main-scroller');
+        const pages = document.querySelectorAll('.page');
+        
+        scroller.addEventListener('scroll', () => {
+            let currentIndex = Math.round(scroller.scrollTop / window.innerHeight);
+            pages.forEach((page, idx) => {
+                if(idx === currentIndex) {
+                    page.classList.add('active-page');
+                } else {
+                    page.classList.remove('active-page');
+                }
+            });
+        });
+
+        // 📸 3. 第一頁：拍立得互動
+        function triggerPolaroid(element, text) {
+            if (navigator.vibrate) navigator.vibrate(30); 
+            element.classList.remove('vibrate-anim');
+            void element.offsetWidth; 
+            element.classList.add('vibrate-anim');
+            
+            const caption = document.getElementById('polaroid-text');
+            caption.classList.remove('show');
+            setTimeout(() => {
+                caption.innerText = text;
+                caption.classList.add('show');
+            }, 150);
+        }
+
+        // 🎨 4. 第三頁：刮刮樂
+        function initScratchCard() {
+            const canvas = document.getElementById('scratchCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            ctx.fillStyle = '#ebeeec';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.font = "200 12px sans-serif";
+            ctx.fillStyle = "#999999";
+            ctx.textAlign = "center";
+            ctx.letterSpacing = "2px";
+            ctx.fillText("SCRATCH ME ♡", canvas.width / 2, canvas.height / 2);
+
+            let isDrawing = false;
+            function scratch(e) {
+                if (!isDrawing) return;
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                ctx.arc(x, y, 25, 0, Math.PI * 2); 
+                ctx.fill();
+            }
+            canvas.addEventListener('mousedown', () => isDrawing = true);
+            canvas.addEventListener('touchstart', () => isDrawing = true);
+            canvas.addEventListener('mousemove', scratch);
+            canvas.addEventListener('touchmove', scratch);
+            canvas.addEventListener('mouseup', () => isDrawing = false);
+            canvas.addEventListener('touchend', () => isDrawing = false);
+        }
+
+        // 🌧️ 5. 第四頁：物理引擎愛心雨
+        const rainCanvas = document.getElementById('heart-rain-canvas');
+        const rCtx = rainCanvas.getContext('2d');
+
+        const Engine = Matter.Engine,
+              Runner = Matter.Runner,
+              Bodies = Matter.Bodies,
+              Composite = Matter.Composite;
+
+        const engine = Engine.create();
+        engine.world.gravity.y = 1;
+
+        let ground, leftWall, rightWall;
+
+        function setupPhysicsBoundaries() {
+            rainCanvas.width = window.innerWidth;
+            rainCanvas.height = window.innerHeight;
+            Matter.World.clear(engine.world);
+            Engine.clear(engine);
+
+            ground = Bodies.rectangle(rainCanvas.width / 2, rainCanvas.height + 25, rainCanvas.width, 50, { isStatic: true });
+            leftWall = Bodies.rectangle(-25, rainCanvas.height / 2, 50, rainCanvas.height, { isStatic: true });
+            rightWall = Bodies.rectangle(rainCanvas.width + 25, rainCanvas.height / 2, 50, rainCanvas.height, { isStatic: true });
+            Composite.add(engine.world, [ground, leftWall, rightWall]);
+        }
+        setupPhysicsBoundaries();
+        window.addEventListener('resize', setupPhysicsBoundaries);
+
+        Runner.run(engine);
+
+        const imgUrls = [
+            'https://i.postimg.cc/Gt1d8ngg/IMG-3900.jpgauto=format&fit=crop&w=120&q=80',
+            'https://i.postimg.cc/MHbx13gD/IMG-3901.jpgauto=format&fit=crop&w=120&q=80',
+            'https://i.postimg.cc/mkNR7pKS/IMG-3902.jpgauto=format&fit=crop&w=120&q=80'
+        ];
+        let loadedImages = [];
+        imgUrls.forEach(url => {
+            let img = new Image();
+            img.src = url;
+            loadedImages.push(img);
+        });
+
+        function spawnPhysicsHeart() {
+            let currentHearts = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+            if (currentHearts.length > 60) return;
+
+            const size = Math.random() * 12 + 22; 
+            const heartBody = Bodies.circle(Math.random() * rainCanvas.width, -50, size / 2, {
+                restitution: 0.5,
+                friction: 0.4,
+                renderImg: loadedImages[Math.floor(Math.random() * loadedImages.length)],
+                renderSize: size
+            });
+            Matter.Body.setAngularVelocity(heartBody, (Math.random() - 0.5) * 0.15);
+            Composite.add(engine.world, heartBody);
+        }
+
+        function drawMatterHeart(ctx, img, x, y, size, angle) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle);
+            ctx.translate(-size/2, -size/2);
+
+            ctx.beginPath();
+            ctx.moveTo(size / 2, size / 5);
+            ctx.bezierCurveTo(size / 2, 0, 0, 0, 0, size / 2);
+            ctx.bezierCurveTo(0, size * 0.75, size / 2, size, size / 2, size);
+            ctx.bezierCurveTo(size / 2, size, size, size * 0.75, size, size / 2);
+            ctx.bezierCurveTo(size, 0, size / 2, 0, size / 2, size / 5);
+            ctx.closePath();
+            ctx.clip(); 
+
+            if (img && img.complete) {
+                ctx.drawImage(img, 0, 0, size, size);
+            } else {
+                ctx.fillStyle = '#ffcdd2';
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function renderPhysics() {
+            rCtx.clearRect(0, 0, rainCanvas.width, rainCanvas.height);
+            if (Math.random() < 0.08) spawnPhysicsHeart();
+
+            const bodies = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+            bodies.forEach(body => {
+                drawMatterHeart(rCtx, body.renderImg, body.position.x, body.position.y, body.renderSize, body.angle);
+            });
+            requestAnimationFrame(renderPhysics);
+        }
+        requestAnimationFrame(renderPhysics);
+
+        if (window.DeviceOrientationEvent) {
+            window.addEventListener('deviceorientation', (e) => {
+                if (e.gamma !== null) engine.world.gravity.x = e.gamma * 0.015; 
+            }, true);
+        }
+
+        if (window.DeviceMotionEvent) {
+            let lastX, lastY, lastZ;
+            window.addEventListener('devicemotion', (e) => {
+                let acc = e.accelerationIncludingGravity;
+                if (!acc) return;
+                if (lastX !== undefined) {
+                    let delta = Math.abs(acc.x - lastX) + Math.abs(acc.y - lastY) + Math.abs(acc.z - lastZ);
+                    if (delta > 22) {
+                        const bodies = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+                        bodies.forEach(body => {
+                            Matter.Body.applyForce(body, body.position, { x: (Math.random()-0.5)*0.008, y: -0.018 });
+                        });
+                    }
+                }
+                lastX = acc.x; lastY = acc.y; lastZ = acc.z;
+            }, true);
+        }
+
+        rainCanvas.addEventListener('click', () => {
+            const bodies = Composite.allBodies(engine.world).filter(b => !b.isStatic);
+            bodies.forEach(body => {
+                Matter.Body.applyForce(body, body.position, { x: (Math.random()-0.5)*0.01, y: -0.02 });
+            });
+        });
+    </script>
+</body>
+</html>
